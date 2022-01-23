@@ -165,7 +165,12 @@ func tokenProxyHandler(tokenEndpoint, repoPrefix string) http.HandlerFunc {
 // entered into the browser, like GCR (gcr.io/google-containers/busybox).
 func browserRedirectHandler(cfg registryConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		url := fmt.Sprintf("https://%s/%s%s", cfg.host, cfg.repoPrefix, r.RequestURI)
+	    var url string
+        if r.RequestURI == "/" {
+		    url = fmt.Sprintf("https://%s/%s", r.Host, cfg.repoPrefix)
+		}else {
+		    url = fmt.Sprintf("https://%s/%s%s", r.Host, cfg.repoPrefix, r.RequestURI)
+		}
 		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 	}
 }
@@ -246,6 +251,12 @@ func updateTokenEndpoint(resp *http.Response, host string) {
 	if v == "" {
 		return
 	}
+	/*repoPrefix := os.Getenv("REPO_PREFIX")
+    repository := regexp.MustCompile(fmt.Sprintf(`scope="repository:%s/(.*?)"`, repoPrefix))
+    newScope := fmt.Sprintf(`scope="repository:%s"`, repository.FindStringSubmatch(v)[1])
+    //fmt.Printf("%q\n", newScope)
+    //fmt.Printf("%q\n", repository.ReplaceAllString(v,newScope))
+    v = repository.ReplaceAllString(v, newScope)*/
 	cur := fmt.Sprintf("https://%s/_token", host)
 	resp.Header.Set("www-authenticate", realm.ReplaceAllString(v, fmt.Sprintf(`realm="%s"`, cur)))
 }
