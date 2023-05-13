@@ -60,9 +60,6 @@ func main() {
 		log.Fatal("REGISTRY_HOST environment variable not specified (example: gcr.io)")
 	}
 	repoPrefix := os.Getenv("REPO_PREFIX")
-	if repoPrefix == "" {
-		log.Fatal("REPO_PREFIX environment variable not specified")
-	}
 
 	var registrySchema string
 	_, registryPlainHttp := os.LookupEnv("REGISTRY_PLAIN_HTTP")
@@ -162,7 +159,14 @@ func tokenProxyHandler(tokenEndpoint, repoPrefix string) http.HandlerFunc {
 			if scope == "" {
 				return
 			}
-			newScope := strings.Replace(scope, "repository:", fmt.Sprintf("repository:%s/", repoPrefix), 1)
+
+			var newScope string
+			if repoPrefix != "" {
+				newScope = strings.Replace(scope, "repository:", fmt.Sprintf("repository:%s/", repoPrefix), 1)
+			} else {
+				newScope = scope
+			}
+
 			q.Set("scope", newScope)
 			u, _ := url.Parse(tokenEndpoint)
 			u.RawQuery = q.Encode()
@@ -179,7 +183,14 @@ func tokenProxyHandler(tokenEndpoint, repoPrefix string) http.HandlerFunc {
 // entered into the browser, like GCR (gcr.io/google-containers/busybox).
 func browserRedirectHandler(cfg registryConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		url := fmt.Sprintf("%s://%s/%s%s", cfg.schema, cfg.host, cfg.repoPrefix, r.RequestURI)
+		var url string
+
+		if cfg.repoPrefix != "" {
+			url = fmt.Sprintf("%s://%s/%s%s", cfg.schema, cfg.host, cfg.repoPrefix, r.RequestURI)
+		} else {
+			url = fmt.Sprintf("%s://%s/%s", cfg.schema, cfg.host, r.RequestURI)
+		}
+
 		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 	}
 }
@@ -204,7 +215,11 @@ func rewriteRegistryV2URL(c registryConfig) func(*http.Request) {
 		req.URL.Scheme = c.schema
 		req.URL.Host = c.host
 		if req.URL.Path != "/v2/" {
-			req.URL.Path = re.ReplaceAllString(req.URL.Path, fmt.Sprintf("/v2/%s/", c.repoPrefix))
+			if c.repoPrefix != "" {
+				req.URL.Path = re.ReplaceAllString(req.URL.Path, fmt.Sprintf("/v2/%s/", c.repoPrefix))
+			} else {
+				req.URL.Path = re.ReplaceAllString(req.URL.Path, "/v2/")
+			}
 		}
 		log.Printf("rewrote url: %s into %s", u, req.URL)
 	}
