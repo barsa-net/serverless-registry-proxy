@@ -53,7 +53,8 @@ func main() {
 	if port == "" {
 		log.Fatal("PORT environment variable not specified")
 	}
-	browserRedirects := os.Getenv("DISABLE_BROWSER_REDIRECTS") == ""
+	_, browserRedirects := os.LookupEnv("DISABLE_BROWSER_REDIRECTS")
+	browserRedirects = !browserRedirects
 
 	registryHost := os.Getenv("REGISTRY_HOST")
 	if registryHost == "" {
