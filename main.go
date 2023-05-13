@@ -16,9 +16,11 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -233,6 +235,20 @@ type registryRoundtripper struct {
 func (rrt *registryRoundtripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	log.Printf("request received. url=%s", req.URL)
 
+	var resp *http.Response
+	var err error
+
+	if req.Method != "GET" {
+		json := `{"errors":[{"code": "DENIED","message": "The system is in read only mode. Any modification is prohibited."}]}`
+		r := io.NopCloser(bytes.NewReader([]byte(json)))
+		resp = &http.Response{
+			StatusCode: 403,
+			Body:       r,
+		}
+		log.Printf("request completed (status=%d) url=%s", resp.StatusCode, req.URL)
+		return resp, nil
+	}
+
 	if rrt.auth != nil {
 		req.Header.Set("Authorization", rrt.auth.AuthHeader())
 	}
@@ -242,7 +258,7 @@ func (rrt *registryRoundtripper) RoundTrip(req *http.Request) (*http.Response, e
 		req.Header.Set("user-agent", "gcr-proxy/0.1 customDomain/"+origHost+" "+ua)
 	}
 
-	resp, err := http.DefaultTransport.RoundTrip(req)
+	resp, err = http.DefaultTransport.RoundTrip(req)
 	if err == nil {
 		log.Printf("request completed (status=%d) url=%s", resp.StatusCode, req.URL)
 	} else {
