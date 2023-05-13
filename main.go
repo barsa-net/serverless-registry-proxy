@@ -41,6 +41,7 @@ var (
 type myContextKey string
 
 type registryConfig struct {
+	schema     string
 	host       string
 	repoPrefix string
 }
@@ -63,12 +64,22 @@ func main() {
 		log.Fatal("REPO_PREFIX environment variable not specified")
 	}
 
+	var registrySchema string
+	_, registryPlainHttp := os.LookupEnv("REGISTRY_PLAIN_HTTP")
+
+	if registryPlainHttp {
+		registrySchema = "http"
+	} else {
+		registrySchema = "https"
+	}
+
 	reg := registryConfig{
+		schema:     registrySchema,
 		host:       registryHost,
 		repoPrefix: repoPrefix,
 	}
 
-	tokenEndpoint, err := discoverTokenService(reg.host)
+	tokenEndpoint, err := discoverTokenService(reg.schema, reg.host)
 	if err != nil {
 		log.Fatalf("target registry's token endpoint could not be discovered: %+v", err)
 	}
@@ -110,8 +121,8 @@ func main() {
 	log.Printf("server shutdown successfully")
 }
 
-func discoverTokenService(registryHost string) (string, error) {
-	url := fmt.Sprintf("https://%s/v2/", registryHost)
+func discoverTokenService(registrySchema string, registryHost string) (string, error) {
+	url := fmt.Sprintf("%s://%s/v2/", registrySchema, registryHost)
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", fmt.Errorf("failed to query the registry host %s: %+v", registryHost, err)
@@ -168,7 +179,7 @@ func tokenProxyHandler(tokenEndpoint, repoPrefix string) http.HandlerFunc {
 // entered into the browser, like GCR (gcr.io/google-containers/busybox).
 func browserRedirectHandler(cfg registryConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		url := fmt.Sprintf("https://%s/%s%s", cfg.host, cfg.repoPrefix, r.RequestURI)
+		url := fmt.Sprintf("%s://%s/%s%s", cfg.schema, cfg.host, cfg.repoPrefix, r.RequestURI)
 		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 	}
 }
@@ -190,7 +201,7 @@ func rewriteRegistryV2URL(c registryConfig) func(*http.Request) {
 	return func(req *http.Request) {
 		u := req.URL.String()
 		req.Host = c.host
-		req.URL.Scheme = "https"
+		req.URL.Scheme = c.schema
 		req.URL.Host = c.host
 		if req.URL.Path != "/v2/" {
 			req.URL.Path = re.ReplaceAllString(req.URL.Path, fmt.Sprintf("/v2/%s/", c.repoPrefix))
