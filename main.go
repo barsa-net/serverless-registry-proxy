@@ -188,7 +188,7 @@ func browserRedirectHandler(cfg registryConfig) http.HandlerFunc {
 		if cfg.repoPrefix != "" {
 			url = fmt.Sprintf("%s://%s/%s%s", cfg.schema, cfg.host, cfg.repoPrefix, r.RequestURI)
 		} else {
-			url = fmt.Sprintf("%s://%s/%s", cfg.schema, cfg.host, r.RequestURI)
+			url = fmt.Sprintf("%s://%s%s", cfg.schema, cfg.host, r.RequestURI)
 		}
 
 		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
