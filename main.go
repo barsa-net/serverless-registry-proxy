@@ -238,7 +238,7 @@ func (rrt *registryRoundtripper) RoundTrip(req *http.Request) (*http.Response, e
 	var resp *http.Response
 	var err error
 
-	if req.Method != "GET" {
+	if req.Method != "GET" && req.Method != "HEAD" {
 		json := `{"errors":[{"code": "DENIED","message": "The system is in read only mode. Any modification is prohibited."}]}`
 		r := io.NopCloser(bytes.NewReader([]byte(json)))
 		resp = &http.Response{
